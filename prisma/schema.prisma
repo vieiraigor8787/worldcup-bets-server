@@ -19,4 +19,52 @@ model Bet {
   title     String
   code      String   @unique
   createdAt DateTime @default(now()) // date format pattern
+  ownerId   String?
+
+  participants Participant[]
+  owner        User?         @relation(fields: [ownerId], references: [id]) //bet owner
+}
+
+model Participant {
+  id     String @id @default(cuid())
+  userId String
+  betId  String
+
+  guesses Guess[]
+  user    User    @relation(fields: [userId], references: [id])
+  bet     Bet     @relation(fields: [betId], references: [id])
+
+  @@unique([userId, betId]) // an user can participate only one time on each bet
+}
+
+model User {
+  id       String   @id @default(cuid())
+  name     String
+  email    String   @unique
+  avatar   String?
+  createAt DateTime @default(now())
+
+  participatingAt Participant[] // user can participate in many bets
+  ownBets         Bet[] //bet's witch each user is owner
+}
+
+model Game {
+  id                String   @id @default(cuid())
+  date              DateTime
+  firstCountryCode  String
+  secondCountryCode String
+
+  guesses Guess[]
+}
+
+model Guess {
+  id                  String   @id @default(cuid())
+  firstCountryPoints  Int
+  secondCountryPoints Int
+  createAt            DateTime @default(now())
+  gameId              String
+  participantId       String
+
+  game        Game        @relation(fields: [gameId], references: [id])
+  participant Participant @relation(fields: [participantId], references: [id])
 }
