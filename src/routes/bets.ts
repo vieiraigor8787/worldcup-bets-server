@@ -53,7 +53,7 @@ export async function betRoutes(fastify: FastifyInstance) {
 
   //participants
   fastify.post(
-    '/bets/:id/join',
+    '/bets/join',
     {
       //rota somente acessivel se o usuário estiver autenticado
       onRequest: [authenticate],
@@ -114,11 +114,9 @@ export async function betRoutes(fastify: FastifyInstance) {
         },
       });
 
-      return reply
-        .status(201)
-        .send({
-          message: `Agora você está participando do bolão ${bet.title}`,
-        });
+      return reply.status(201).send({
+        message: `Agora você está participando do bolão ${bet.title}`,
+      });
     }
   );
 
@@ -149,9 +147,9 @@ export async function betRoutes(fastify: FastifyInstance) {
 
               user: {
                 select: {
-                  avatar: true
-                }
-              }
+                  avatar: true,
+                },
+              },
             },
             take: 4,
           },
@@ -165,6 +163,53 @@ export async function betRoutes(fastify: FastifyInstance) {
       });
 
       return { bets };
+    }
+  );
+
+  //detalhes de um bolão
+  fastify.get(
+    '/bets/:id',
+    {
+      onRequest: [authenticate],
+    },
+    async (req) => {
+      const getBetParams = z.object({
+        id: z.string(),
+      });
+
+      const { id } = getBetParams.parse(req.params);
+
+      const bet = await prisma.bet.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          _count: {
+            select: {
+              participants: true,
+            },
+          },
+          participants: {
+            select: {
+              id: true,
+
+              user: {
+                select: {
+                  avatar: true,
+                },
+              },
+            },
+            take: 4,
+          },
+          owner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+      return { bet };
     }
   );
 }
