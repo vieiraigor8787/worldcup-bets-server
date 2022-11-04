@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/auth";
 import { betRoutes } from "./routes/bets";
 import { guessRoutes } from "./routes/guesses";
 import { userRoutes } from "./routes/users";
+import { gamesRoutes } from "./routes/games";
 
 async function bootstrap() {
   const fastify = Fastify({
@@ -23,7 +24,8 @@ async function bootstrap() {
   await fastify.register(betRoutes)
   await fastify.register(userRoutes)
   await fastify.register(guessRoutes)
-  await fastify.register(authRoutes)  
+  await fastify.register(gamesRoutes)   
+  await fastify.register(authRoutes) 
 
   await fastify.listen({ port: 3333, host: "0.0.0.0" })
 }
