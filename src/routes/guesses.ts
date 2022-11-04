@@ -32,7 +32,7 @@ export async function guessRoutes(fastify: FastifyInstance) {
         req.body
       );
 
-      // usuário pertence ao bolão
+      // validar se o usuário não pertencer ao bolão, não pode fazer um palpite
       const participant = await prisma.participant.findUnique({
         where: {
           userId_betId: {
@@ -42,15 +42,57 @@ export async function guessRoutes(fastify: FastifyInstance) {
         },
       });
 
-      //se o usuário não faz parte do bolão
       if (!participant) {
         return reply.status(400).send({
           message: 'Você não está permitido criar um palpite para este bolão',
         });
       }
 
+      // nao permitir que o participante faça novo palpite no mesmo jogo no mesmo bolão
+      const guess = await prisma.guess.findUnique({
+        where: {
+         participantId_gameId: {
+          participantId: participant.id,
+          gameId
+         }
+        }
+      })
 
-      return { firstCountryPoints, secondCountryPoints, gameId, betId };
+      if (guess) {
+        return reply.status(400).send({
+          message: "Você já enviou um palpite para este jogo neste bolão"
+        })
+      }
+
+      //se o jogo não existir ou já estiver ocorrido, retorna erro
+      const game = await prisma.game.findUnique({
+        where: {
+          id: gameId 
+        }
+      })
+
+      if (!game) {
+        return reply.status(400).send({
+          message: "Jogo não encontrado"
+        })
+      }
+
+      if (game.date < new Date()) {
+        return reply.status(400).send({
+          message: "Não é possível fazer palpite em jogos já realizados"
+        })
+      }
+
+      await prisma.guess.create({
+        data: {
+          gameId,
+          participantId: participant.id,
+          firstCountryPoints,
+          secondCountryPoints
+        }
+      })
+
+      return reply.status(200).send({message: 'Palpite criado com sucesso!'});
     }
   );
 }
