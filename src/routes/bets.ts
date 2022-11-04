@@ -21,14 +21,32 @@ export async function betRoutes(fastify: FastifyInstance) {
 
     const code = String(generateCode().toUpperCase())
 
-    await prisma.bet.create({
-      data: {
-        title,
-        code
-      }
-    })
+    try {
+      await request.jwtVerify()
+      // user already authenticated
+      await prisma.bet.create({
+        data: {
+          title,
+          code,
+          ownerId: request.user.sub,
+
+          participants: {
+            create: {
+              userId: request.user.sub
+            }
+          }
+        }
+      })
+    } catch {
+      // create new user
+      await prisma.bet.create({
+        data: {
+          title,
+          code
+        }
+      })
+    }
 
     return reply.status(201).send({code})
-
   })
 }
