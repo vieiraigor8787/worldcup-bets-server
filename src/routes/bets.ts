@@ -93,6 +93,18 @@ export async function betRoutes(fastify: FastifyInstance) {
         });
       }
 
+      // quando usuário entrar num bolão sem dono, automaticamente ele vira o owner.
+      if (!bet.ownerId) {
+        await prisma.bet.update({
+          where: {
+            id: bet.id
+          },
+          data: {
+            ownerId: req.user.sub
+          }
+        })
+      }
+
       // caso tenha passado por todas as validações acima
       // criar participante com id do bolão e do usuario logado
       await prisma.participant.create({
