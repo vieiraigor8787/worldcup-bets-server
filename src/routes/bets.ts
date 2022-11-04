@@ -97,12 +97,12 @@ export async function betRoutes(fastify: FastifyInstance) {
       if (!bet.ownerId) {
         await prisma.bet.update({
           where: {
-            id: bet.id
+            id: bet.id,
           },
           data: {
-            ownerId: req.user.sub
-          }
-        })
+            ownerId: req.user.sub,
+          },
+        });
       }
 
       // caso tenha passado por todas as validações acima
@@ -111,10 +111,60 @@ export async function betRoutes(fastify: FastifyInstance) {
         data: {
           betId: bet.id,
           userId: req.user.sub,
-        }
+        },
       });
 
-      return reply.status(201).send({message: `Agora você está participando do bolão ${bet.title}`})
+      return reply
+        .status(201)
+        .send({
+          message: `Agora você está participando do bolão ${bet.title}`,
+        });
+    }
+  );
+
+  // retornar todos os bolões que o usuário está participando
+  fastify.get(
+    '/bets',
+    {
+      onRequest: [authenticate],
+    },
+    async (req) => {
+      const bets = await prisma.bet.findMany({
+        where: {
+          participants: {
+            some: {
+              userId: req.user.sub,
+            },
+          },
+        },
+        include: {
+          _count: {
+            select: {
+              participants: true,
+            },
+          },
+          participants: {
+            select: {
+              id: true,
+
+              user: {
+                select: {
+                  avatar: true
+                }
+              }
+            },
+            take: 4,
+          },
+          owner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      return { bets };
     }
   );
 }
