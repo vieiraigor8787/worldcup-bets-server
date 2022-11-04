@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import ShortUniqueId from 'short-unique-id';
 import { prisma } from '../lib/prisma';
+import { authenticate } from '../plugins/authenticate';
 
 export async function betRoutes(fastify: FastifyInstance) {
   fastify.get('/bets/count', async () => {
@@ -10,19 +11,19 @@ export async function betRoutes(fastify: FastifyInstance) {
     return { count };
   });
 
-  fastify.post("/bets", async (request, reply) => {
+  fastify.post('/bets', async (request, reply) => {
     const createBetBody = z.object({
-      title: z.string()
-    })
+      title: z.string(),
+    });
 
-    const { title } = createBetBody.parse(request.body)
+    const { title } = createBetBody.parse(request.body);
 
-    const generateCode = new ShortUniqueId({ length: 6 })
+    const generateCode = new ShortUniqueId({ length: 6 });
 
-    const code = String(generateCode().toUpperCase())
+    const code = String(generateCode().toUpperCase());
 
     try {
-      await request.jwtVerify()
+      await request.jwtVerify();
       // user already authenticated
       await prisma.bet.create({
         data: {
@@ -32,21 +33,76 @@ export async function betRoutes(fastify: FastifyInstance) {
 
           participants: {
             create: {
-              userId: request.user.sub
-            }
-          }
-        }
-      })
+              userId: request.user.sub,
+            },
+          },
+        },
+      });
     } catch {
       // create new user
       await prisma.bet.create({
         data: {
           title,
-          code
-        }
-      })
+          code,
+        },
+      });
     }
 
-    return reply.status(201).send({code})
-  })
+    return reply.status(201).send({ code });
+  });
+
+  //participants
+  fastify.post(
+    '/bets/:id/join',
+    {
+      //rota somente acessivel se o usuário estiver autenticado
+      onRequest: [authenticate],
+    },
+    async (req, reply) => {
+      const joinBetBody = z.object({
+        code: z.string(),
+      });
+
+      const { code } = joinBetBody.parse(req.body);
+
+      const bet = await prisma.bet.findUnique({
+        //encontrar bolão por codigo
+        where: {
+          code,
+        },
+        // traz uma lista apenas em que o id do usuario participante seja igual ao id do usuario logado
+        include: {
+          participants: {
+            where: {
+              userId: req.user.sub,
+            },
+          },
+        },
+      });
+
+      //se nao existir bolão através do código digitado pelo usuario, exibir msg de erro
+      if (!bet) {
+        return reply.status(400).send({
+          message: 'bolão não encontrado',
+        });
+      }
+
+      if (bet.participants.length > 0) {
+        return reply.status(400).send({
+          message: 'Você já está participando deste bolão',
+        });
+      }
+
+      // caso tenha passado por todas as validações acima
+      // criar participante com id do bolão e do usuario logado
+      await prisma.participant.create({
+        data: {
+          betId: bet.id,
+          userId: req.user.sub,
+        }
+      });
+
+      return reply.status(201).send({message: `Agora você está participando do bolão ${bet.title}`})
+    }
+  );
 }
